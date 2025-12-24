@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Session Debug Test</title>
+</head>
+<body>
+    <h1>GiriMovies Session Debug</h1>
+    
+    <div>
+        <h2>1. Login as Nitesh</h2>
+        <button onclick="loginUser()">Login</button>
+        <div id="loginResult"></div>
+    </div>
+    
+    <div>
+        <h2>2. Check Session Debug</h2>
+        <button onclick="debugSession()">Debug Session</button>
+        <div id="sessionResult"></div>
+    </div>
+    
+    <div>
+        <h2>3. Update Watch Progress</h2>
+        <button onclick="updateProgress()">Save Progress (53 seconds)</button>
+        <div id="progressResult"></div>
+    </div>
+    
+    <div>
+        <h2>4. Get Watch Progress</h2>
+        <button onclick="getProgress()">Get Progress</button>
+        <div id="getProgressResult"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+        
+        // Mock device information that should be consistent across browsers
+        const deviceInfo = {
+            macAddress: "AA:BB:CC:DD:EE:FF",  // Consistent across browsers
+            processorId: "CPU-12345",
+            machineGuid: "12345678-1234-1234-1234-123456789012",
+            computerName: "TEST-COMPUTER",
+            userName: "TestUser",
+            osVersion: "Windows 10",
+            localIP: "192.168.1.100",
+            timeZone: "Central European Standard Time",
+            userAgent: navigator.userAgent,  // This will differ between browsers
+            screenResolution: "1920x1080",
+            deviceName: "Test Computer"
+        };
+        
+        async function loginUser() {
+            try {
+                const response = await fetch('https://localhost:55428/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'nitesh@test.com',
+                        password: 'Test123!',
+                        deviceType: 'Computer',
+                        deviceInfo: deviceInfo
+                    })
+                });
+                
+                const result = await response.json();
+                authToken = result.token;
+                document.getElementById('loginResult').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('loginResult').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function debugSession() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            try {
+                const response = await fetch('https://localhost:55428/api/watchprogress/debug/session', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const result = await response.json();
+                document.getElementById('sessionResult').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('sessionResult').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function updateProgress() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            try {
+                const response = await fetch('https://localhost:55428/api/watchprogress', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        movieId: 1, // The Shawshank Redemption
+                        currentPositionInSeconds: 53,
+                        deviceType: 'Computer'
+                    })
+                });
+                
+                const result = await response.json();
+                document.getElementById('progressResult').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('progressResult').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function getProgress() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            try {
+                const response = await fetch('https://localhost:55428/api/watchprogress/movie/1', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const result = await response.json();
+                document.getElementById('getProgressResult').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('getProgressResult').innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

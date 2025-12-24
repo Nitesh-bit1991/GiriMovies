@@ -1,0 +1,121 @@
+@page "/"
+@using GiriMovies.Shared.DTOs
+@using GiriMovies.Client.Services
+@inject IMovieService MovieService
+@inject NavigationManager Navigation
+@inject IAuthService AuthService
+
+<PageTitle>🎬 Giri Movies - Home</PageTitle>
+
+<div class="home-container">
+    @if (isLoading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else
+    {
+        @if (continueWatchingMovies.Any())
+        {
+            <section class="movie-section">
+                <h2>Continue Watching</h2>
+                <div class="movie-row">
+                    @foreach (var movie in continueWatchingMovies)
+                    {
+                        <div class="movie-card" @onclick="() => NavigateToPlayer(movie.Id)">
+                            <div class="movie-thumbnail">
+                                <img src="@movie.ThumbnailUrl" alt="@movie.Title" />
+                                <div class="progress-overlay">
+                                    <div class="progress-bar" style="width: @(movie.ProgressPercentage ?? 0)%"></div>
+                                </div>
+                                <div class="play-overlay">
+                                    <i class="play-icon">▶</i>
+                                </div>
+                            </div>
+                            <div class="movie-info">
+                                <h3>@movie.Title</h3>
+                                <p class="movie-meta">
+                                    @if (movie.LastWatchedDevice != null)
+                                    {
+                                        <span class="device-badge">📱 @movie.LastWatchedDevice</span>
+                                    }
+                                    <span>@((int)(movie.ProgressPercentage ?? 0))% watched</span>
+                                </p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+        
+        <section class="movie-section">
+            <h2>All Movies</h2>
+            <div class="movie-row">
+                @foreach (var movie in allMovies)
+                {
+                    <div class="movie-card" @onclick="() => NavigateToPlayer(movie.Id)">
+                        <div class="movie-thumbnail">
+                            <img src="@movie.ThumbnailUrl" alt="@movie.Title" />
+                            @if (movie.ProgressPercentage > 0)
+                            {
+                                <div class="progress-overlay">
+                                    <div class="progress-bar" style="width: @(movie.ProgressPercentage ?? 0)%"></div>
+                                </div>
+                            }
+                            <div class="play-overlay">
+                                <i class="play-icon">▶</i>
+                            </div>
+                        </div>
+                        <div class="movie-info">
+                            <h3>@movie.Title</h3>
+                            <p class="movie-meta">
+                                <span>⭐ @movie.Rating</span>
+                                <span>@movie.Genre</span>
+                                <span>@movie.ReleaseYear</span>
+                            </p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private List<MovieDto> allMovies = new();
+    private List<MovieDto> continueWatchingMovies = new();
+    private bool isLoading = true;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMovies();
+    }
+    
+    private async Task LoadMovies()
+    {
+        isLoading = true;
+        
+        try
+        {
+            var moviesTask = MovieService.GetMoviesAsync();
+            var continueTask = MovieService.GetContinueWatchingAsync();
+            
+            await Task.WhenAll(moviesTask, continueTask);
+            
+            allMovies = await moviesTask;
+            continueWatchingMovies = await continueTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading movies: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    
+    private void NavigateToPlayer(int movieId)
+    {
+        Navigation.NavigateTo($"/player/{movieId}");
+    }
+}

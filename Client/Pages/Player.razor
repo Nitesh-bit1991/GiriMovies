@@ -1,0 +1,263 @@
+@page "/player/{MovieId:int}"
+@using GiriMovies.Shared.DTOs
+@using GiriMovies.Client.Services
+@inject IMovieService MovieService
+@inject IWatchProgressService WatchProgressService
+@inject IDeviceDetectionService DeviceDetection
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>🎬 @(movie?.Title ?? "Player") - Giri Movies</PageTitle>
+
+<div class="player-container">
+    @if (isLoading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (movie != null)
+    {
+        <div class="video-wrapper">
+            <button class="back-button" @onclick="NavigateBack">← Back</button>
+            
+            <video @ref="videoElement" 
+                   class="video-player" 
+                   controls 
+                   @ontimeupdate="HandleTimeUpdate"
+                   @onplay="HandlePlay"
+                   @onpause="HandlePause"
+                   @onended="HandleEnded"
+                   @onloadedmetadata="HandleVideoLoaded">
+                <source src="@movie.VideoUrl" type="video/mp4" />
+                Your browser does not support the video tag.
+            </video>
+            
+            <div class="video-info">
+                <h1>@movie.Title</h1>
+                <p class="movie-description">@movie.Description</p>
+                <div class="movie-details">
+                    <span class="badge">⭐ @movie.Rating</span>
+                    <span class="badge">@movie.Genre</span>
+                    <span class="badge">@movie.ReleaseYear</span>
+                    <span class="badge">@FormatDuration(movie.DurationInSeconds)</span>
+                </div>
+                
+                @if (!string.IsNullOrEmpty(currentDevice))
+                {
+                    <div class="device-info">
+                        <p>📱 Watching on: <strong>@currentDevice</strong></p>
+                        @if (movie.LastWatchedDevice != null && movie.LastWatchedDevice != currentDevice)
+                        {
+                            <p class="sync-info">
+                                ✓ Synced from @movie.LastWatchedDevice
+                                @if (movie.LastWatchedAt.HasValue)
+                                {
+                                    <span> - @FormatTimeAgo(movie.LastWatchedAt.Value)</span>
+                                }
+                            </p>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="error">Movie not found</div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int MovieId { get; set; }
+    
+    private MovieDto? movie;
+    private ElementReference videoElement;
+    private bool isLoading = true;
+    private string currentDevice = string.Empty;
+    private System.Threading.Timer? progressTimer;
+    private int lastSavedPosition = 0;
+    private bool isPlaying = false;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMovie();
+        currentDevice = await DeviceDetection.GetDeviceTypeAsync();
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        Console.WriteLine($"🔄 OnAfterRenderAsync called: firstRender={firstRender}, movie={movie?.Title}, position={movie?.CurrentPositionInSeconds}");
+        
+        if (firstRender)
+        {
+            Console.WriteLine($"🔄 OnAfterRenderAsync: First render completed. Video will be set when metadata loads.");
+        }
+        
+        // Note: We're now using HandleVideoLoaded instead of setting time here
+        // This ensures the video element is fully ready before setting currentTime
+    }
+    
+    private async Task LoadMovie()
+    {
+        isLoading = true;
+        
+        try
+        {
+            Console.WriteLine($"📡 LoadMovie: Starting to load movie ID {MovieId}");
+            movie = await MovieService.GetMovieAsync(MovieId);
+            
+            if (movie != null)
+            {
+                Console.WriteLine($"🎬 Movie loaded successfully:");
+                Console.WriteLine($"  - Title: {movie.Title}");
+                Console.WriteLine($"  - Duration: {movie.DurationInSeconds}s");
+                Console.WriteLine($"  - CurrentPositionInSeconds: {movie.CurrentPositionInSeconds}");
+                Console.WriteLine($"  - ProgressPercentage: {movie.ProgressPercentage}%");
+                Console.WriteLine($"  - LastWatchedAt: {movie.LastWatchedAt}");
+                Console.WriteLine($"  - LastWatchedDevice: {movie.LastWatchedDevice}");
+                Console.WriteLine($"  - IsCompleted: {movie.IsCompleted}");
+                
+                // Force UI update
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"❌ Movie is null after loading!");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading movie: {ex.Message}");
+            Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+        }
+        finally
+        {
+            isLoading = false;
+            Console.WriteLine($"📡 LoadMovie: Finished loading (isLoading = {isLoading})");
+        }
+    }
+    
+    private async Task HandleTimeUpdate()
+    {
+        if (!isPlaying) return;
+        
+        try
+        {
+            var currentTime = await JSRuntime.InvokeAsync<double>("getVideoTime", videoElement);
+            var currentPosition = (int)currentTime;
+            
+            // Save progress every 10 seconds
+            if (Math.Abs(currentPosition - lastSavedPosition) >= 10)
+            {
+                await SaveProgress(currentPosition);
+                lastSavedPosition = currentPosition;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating time: {ex.Message}");
+        }
+    }
+    
+    private async Task HandleVideoLoaded()
+    {
+        Console.WriteLine($"🎬 HandleVideoLoaded: Video metadata loaded");
+        
+        if (movie != null && movie.CurrentPositionInSeconds > 0)
+        {
+            Console.WriteLine($"🎬 HandleVideoLoaded: Setting video time to {movie.CurrentPositionInSeconds}s after metadata load");
+            
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("setVideoTime", videoElement, movie.CurrentPositionInSeconds);
+                Console.WriteLine($"✅ HandleVideoLoaded: Video time set successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ HandleVideoLoaded: Error setting video time: {ex.Message}");
+            }
+        }
+    }
+    
+    private void HandlePlay()
+    {
+        isPlaying = true;
+        Console.WriteLine($"▶️ Video started playing at: {DateTime.Now}");
+    }
+    
+    private void HandlePause()
+    {
+        isPlaying = false;
+        // Save progress immediately when paused
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var currentTime = await JSRuntime.InvokeAsync<double>("getVideoTime", videoElement);
+                await SaveProgress((int)currentTime);
+            }
+            catch { }
+        });
+    }
+    
+    private async Task HandleEnded()
+    {
+        isPlaying = false;
+        if (movie != null)
+        {
+            await SaveProgress(movie.DurationInSeconds);
+        }
+    }
+    
+    private async Task SaveProgress(int position)
+    {
+        try
+        {
+            var request = new UpdateWatchProgressRequest
+            {
+                MovieId = MovieId,
+                CurrentPositionInSeconds = position,
+                DeviceType = currentDevice
+            };
+            
+            await WatchProgressService.UpdateWatchProgressAsync(request);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving progress: {ex.Message}");
+        }
+    }
+    
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+    
+    private string FormatDuration(int seconds)
+    {
+        var timeSpan = TimeSpan.FromSeconds(seconds);
+        return $"{(int)timeSpan.TotalHours}h {timeSpan.Minutes}m";
+    }
+    
+    private string FormatTimeAgo(DateTime dateTime)
+    {
+        var timeSpan = DateTime.UtcNow - dateTime;
+        
+        if (timeSpan.TotalMinutes < 1)
+            return "just now";
+        if (timeSpan.TotalHours < 1)
+            return $"{(int)timeSpan.TotalMinutes} minutes ago";
+        if (timeSpan.TotalDays < 1)
+            return $"{(int)timeSpan.TotalHours} hours ago";
+        
+        return $"{(int)timeSpan.TotalDays} days ago";
+    }
+    
+    public void Dispose()
+    {
+        progressTimer?.Dispose();
+    }
+    
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+}

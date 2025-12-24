@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Giri-inspired favicon with three interlocking circles -->
+  <rect width="100" height="100" fill="white"/>
+  
+  <!-- Three interlocking circles in Giri blue -->
+  <g fill="none" stroke="#008000" stroke-width="4">
+    <!-- Top circle -->
+    <circle cx="50" cy="35" r="18"/>
+    
+    <!-- Bottom left circle -->
+    <circle cx="38" cy="58" r="18"/>
+    
+    <!-- Bottom right circle -->
+    <circle cx="62" cy="58" r="18"/>
+  </g>
+  
+  <!-- Small "G" initial at bottom -->
+  <text x="50" y="92" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#008000" text-anchor="middle">G</text>
+</svg>

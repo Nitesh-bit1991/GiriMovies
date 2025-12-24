@@ -1,0 +1,168 @@
+@page "/login"
+@using GiriMovies.Shared.DTOs
+@using GiriMovies.Client.Services
+@inject IAuthService AuthService
+@inject IDeviceDetectionService DeviceDetection
+@inject IDeviceIdentificationService DeviceIdentification
+@inject NavigationManager Navigation
+
+<div class="login-container">
+    <div class="login-card">
+        <h1>Giri Movies</h1>
+        
+        @if (!isRegisterMode)
+        {
+            <h2>Sign In</h2>
+            <EditForm Model="loginRequest" OnValidSubmit="HandleLogin">
+                <DataAnnotationsValidator />
+                
+                <div class="form-group">
+                    <input type="email" @bind="loginRequest.Email" placeholder="Email" class="form-control" />
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" @bind="loginRequest.Password" placeholder="Password" class="form-control" />
+                </div>
+                
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+                
+                <button type="submit" class="btn btn-primary btn-block" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span>Signing in...</span>
+                    }
+                    else
+                    {
+                        <span>Sign In</span>
+                    }
+                </button>
+            </EditForm>
+            
+            <div class="register-link">
+                New to Giri Movies? <a href="#" @onclick="() => isRegisterMode = true" @onclick:preventDefault>Sign up now</a>
+            </div>
+        }
+        else
+        {
+            <h2>Sign Up</h2>
+            <EditForm Model="registerRequest" OnValidSubmit="HandleRegister">
+                <DataAnnotationsValidator />
+                
+                <div class="form-group">
+                    <input type="text" @bind="registerRequest.Name" placeholder="Name" class="form-control" />
+                </div>
+                
+                <div class="form-group">
+                    <input type="email" @bind="registerRequest.Email" placeholder="Email" class="form-control" />
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" @bind="registerRequest.Password" placeholder="Password" class="form-control" />
+                </div>
+                
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+                
+                <button type="submit" class="btn btn-primary btn-block" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span>Creating account...</span>
+                    }
+                    else
+                    {
+                        <span>Sign Up</span>
+                    }
+                </button>
+            </EditForm>
+            
+            <div class="register-link">
+                Already have an account? <a href="#" @onclick="() => isRegisterMode = false" @onclick:preventDefault>Sign in</a>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .login-logo {
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .login-logo img {
+        height: 120px;
+        width: auto;
+    }
+</style>
+
+@code {
+    private LoginRequest loginRequest = new();
+    private RegisterRequest registerRequest = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+    private bool isRegisterMode = false;
+    
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        
+        try
+        {
+            // Collect detailed device information for consistent device identification
+            loginRequest.DeviceType = await DeviceDetection.GetDeviceTypeAsync();
+            loginRequest.DeviceInfo = await DeviceIdentification.GetDeviceInfoAsync();
+            
+            var result = await AuthService.LoginAsync(loginRequest);
+            
+            if (result.Success)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = result.Message;
+            }
+        }
+        catch
+        {
+            errorMessage = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        
+        try
+        {
+            var result = await AuthService.RegisterAsync(registerRequest);
+            
+            if (result.Success)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = result.Message;
+            }
+        }
+        catch
+        {
+            errorMessage = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

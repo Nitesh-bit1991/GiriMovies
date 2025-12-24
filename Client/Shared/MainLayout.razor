@@ -1,0 +1,187 @@
+@using GiriMovies.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inherits LayoutComponentBase
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<CascadingAuthenticationState>
+    <div class="page">
+        <header class="navbar">
+            <div class="navbar-content">
+                <div class="logo" @onclick="NavigateHome">
+                    <span class="logo-text">GIRI MOVIES</span>
+                </div>
+                <nav class="nav-menu">
+                    <a href="/" class="nav-link">Home</a>
+                    <AuthorizeView>
+                        <Authorized>
+                            <div class="user-menu">
+                                <span class="user-name">@currentUser?.Name</span>
+                                <button class="btn-logout" @onclick="HandleLogout">Logout</button>
+                            </div>
+                        </Authorized>
+                        <NotAuthorized>
+                            <a href="/login" class="btn-login">Sign In</a>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </nav>
+            </div>
+        </header>
+
+        <main>
+            @Body
+        </main>
+    </div>
+</CascadingAuthenticationState>
+
+<style>
+    .page {
+        min-height: 100vh;
+    }
+
+    .navbar {
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        padding: 1rem 2rem;
+    }
+
+    .navbar-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        max-width: 1920px;
+        margin: 0 auto;
+    }
+
+    .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .logo-image {
+        height: 40px;
+        width: auto;
+    }
+
+    .logo-text {
+        color: var(--Giri-blue);
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .nav-menu {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .nav-link {
+        color: var(--Giri-white);
+        text-decoration: none;
+        font-size: 1rem;
+        transition: color 0.3s;
+    }
+
+    .nav-link:hover {
+        color: var(--Giri-blue);
+    }
+
+    .user-menu {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .user-name {
+        color: var(--Giri-white);
+    }
+
+    .btn-logout {
+        background-color: transparent;
+        border: 1px solid var(--Giri-white);
+        color: var(--Giri-white);
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .btn-logout:hover {
+        background-color: var(--Giri-blue);
+        color: var(--Giri-white);
+        border-color: var(--Giri-blue);
+    }
+
+    .btn-login {
+        background-color: var(--Giri-blue);
+        color: var(--Giri-white);
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+
+    .btn-login:hover {
+        background-color: var(--Giri-blue-hover);
+    }
+
+    main {
+        padding-top: 70px;
+    }
+
+    @@media (max-width: 768px) {
+        .navbar {
+            padding: 1rem;
+        }
+
+        .logo-image {
+            height: 30px;
+        }
+
+        .logo-text {
+            font-size: 1.2rem;
+        }
+
+        .nav-menu {
+            gap: 1rem;
+        }
+
+        .user-name {
+            display: none;
+        }
+    }
+</style>
+
+@code {
+    private UserDto? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Refresh user data when parameters change
+        currentUser = await AuthService.GetCurrentUserAsync();
+    }
+
+    private void NavigateHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        currentUser = null;
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}

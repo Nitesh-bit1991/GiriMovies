@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <!-- Giri Logo -->
+  
+  <!-- Three interlocking circles (simplified representation) -->
+  <g fill="none" stroke="#008000" stroke-width="12">
+    <!-- Top circle -->
+    <circle cx="400" cy="150" r="90"/>
+    
+    <!-- Bottom left circle -->
+    <circle cx="310" cy="280" r="90"/>
+    
+    <!-- Bottom right circle -->
+    <circle cx="490" cy="280" r="90"/>
+  </g>
+  
+  <!-- Giri text -->
+  <text x="400" y="480" font-family="Arial, Helvetica, sans-serif" font-size="80" font-weight="300" fill="#008000" text-anchor="middle">Giri</text>
+</svg>
